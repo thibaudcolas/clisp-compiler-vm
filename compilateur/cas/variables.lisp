@@ -1,0 +1,46 @@
+;; Compilation des déclarations de variables.
+
+(defun compilation-setf (exp env fenv nomf)
+  (if (null exp) ()
+    (append (compilation (cadr exp) env fenv nomf)
+	    (let ((var (assoc (car exp) env)))
+	      (if var
+		  (if (eql (cadr exp) 'loc) '((MOVE :R0 (cdr var))))
+		`((VARG ,(car exp)))
+		)
+	      )
+	    `((MOVE :R0 ,(cadar (compilation (car exp) env fenv nomf))))
+	    (compilation-setf (cddr exp) env fenv nomf))
+    )
+  )
+      
+(defun compilation-let (exp env fenv nomf)
+  (let ((nivem (assoc nomf fenv)))
+    (append (compilation-local (car exp) env fenv nomf)
+	    (compilation (cadr exp) (local-env (car exp) env 1 (cadr nivem)) fenv nomf)
+	    (depile-local (car exp) env fenv nomf))
+    )
+  )
+
+(defun compilation-local (exp env fenv nomf)
+  (if (null exp) 
+      ()
+    (append (compilation (cadar exp) env fenv nomf)
+	    '((PUSH :R0))
+	    (compilation-local (cdr exp) env fenv nomf ))
+    )
+  )
+
+(defun depile-local (exp env fenv nomf)
+  (if (null exp) 
+      ()
+    (append '((POP :R1)) (depile-local (cdr exp) env fenv nomf))
+    )
+  )
+
+(defun local-env (exp env dep nivem)  
+  (if (atom exp) 
+      env
+    (local-env (cdr exp) (cons (cons (caar exp) `(LOC ,dep ,nivem)) env) (+ 1 dep) nivem)
+    )
+  )

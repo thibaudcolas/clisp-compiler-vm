@@ -1,0 +1,83 @@
+;; Fonctions de gestion du chargement du code assembleur en mémoire.
+
+(defun is-saut (inst)
+  (member (car inst) '(JMP JEQ JL JG JLE JGE JNE))
+  )
+
+(defun case-adr (mv exp inst etiqLoc etiqLocNR)
+  (if (get-hash etiqLoc (cadadr exp))
+      (error "Étiquettes multiples : ~S" (cadr inst))
+    (progn
+      (set-hash etiqLoc (cadr inst) (+ (get-lc mv) 1))
+      (res-etiq mv (get-hash etiqLocNR (cadr inst)) (+ (get-lc mv) 1))
+      (if (get-hash etiqLocNR (cadr inst))
+	  (progn
+	    (set-hash etiqLocNR (cadr inst) ())
+	    (inc-hash etiqLocNR)
+	    )
+	)
+      )
+    )
+  )
+
+(defun case-varg (mv exp inst)
+  (if (null (get-etiq mv (cadr inst)))
+      (progn
+	(set-etiq mv (cadr inst) (get-prop mv :VP))
+	(if (< (get-prop mv :VP) (- (get-prop mv :BP) 1)) 
+	    (inc-prop mv :VP)
+	  )
+	)
+    )
+  )
+
+(defun case-saut (mv exp inst)
+  (if (get-etiq mv (cadadr inst))
+      (set-mem-lc mv (list (car inst) (get-etiq mv (cadadr inst))))
+    (progn                                    
+      (if (null (get-etiqNR mv (cadadr inst)))
+	  (inc-etiqNR mv)
+	)
+      (set-etiqNR mv (cadadr inst) (list* (get-lc mv) (get-etiqNR mv (cadadr inst))))
+      (set-mem-lc mv inst)
+      )
+    )
+  (dec-lc mv)
+  )
+
+(defun case-fonction (mv exp inst)
+  (if (get-etiq mv (cadadr exp))
+      (error "Fonction déjà définie : ~S" (cadadr exp))
+    (progn
+      (set-mem-lc mv inst)
+      (set-etiq mv (cadadr exp) (get-lc mv))
+      (res-etiq mv (get-etiqNR mv (cadadr exp)) (get-lc mv))
+      (if (get-etiqNR mv (cadadr exp))
+	  (progn
+	    (set-etiqNR (cadadr exp) ())
+	    (inc-etiqNR mv)
+	    )
+	)
+      (dec-lc mv)
+      )
+    )
+  )
+
+(defun case-other (mv exp inst etiqLoc etiqLocNR)
+  (if (is-saut inst)
+      (progn
+	(if (get-hash etiqLoc (cadadr inst))
+	    (set-mem-lc mv (list (car inst) (get-hash etiqLoc (cadadr inst))))
+	  (progn
+	    (if (null (get-hash etiqLocNR (cadadr inst)))
+		(inc-hash etiqLocNR)
+	      )
+	    (set-hash etiqLocNR (cadadr inst) (list* (get-lc mv) (get-hash etiqLocNR (cadadr inst))))
+	    (set-mem-lc mv inst)
+	    )
+	  )
+	)
+    (set-mem-lc mv inst)
+    )
+  (dec-lc mv)
+  )

@@ -1,0 +1,21 @@
+;; Compilation d'opérations arithmétiques
+
+(defun compilation-op (exp env fenv nomf)
+  (let ((op (car exp))
+	(arg (cdr exp)))
+    (if (null (cddr arg))
+	(append (compilation (car arg) env fenv nomf)
+		'((PUSH :R0))
+		(compilation (cadr arg) env fenv nomf)
+		'((PUSH :R0))
+		'((POP :R1))
+		'((POP :R0))
+		(case op
+		  ('+ '((ADD :R1 :R0)))
+		  ('- '((SUB :R1 :R0)))
+		  ('* '((MULT :R1 :R0)))
+		  ('/ '((DIV :R1 :R0)))))      
+      (append (compilation  `(,op ,(list op (car arg) (cadr arg)) ,@(cddr arg)) env fenv nomf))
+      )
+    )
+  )
